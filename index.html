@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skrypty MDP Serwis – Tampermonkey</title>
+  <meta name="description" content="Wewnętrzne skrypty Tampermonkey dla zespołu MDP Serwis. Instalacja jednym kliknięciem.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <div class="logo">
+      <img src="assets/logo.png" alt="MDP Serwis – Maszyny do palet"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+      <div class="logo-fallback" style="display:none">
+        <strong>MASZYNY DO PALET</strong>
+        <span>MDP Serwis</span>
+      </div>
+    </div>
+    <div class="header-meta" id="header-meta"></div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <h1>Skrypty <span class="accent">Tampermonkey</span> dla zespołu</h1>
+    <p>Wewnętrzne narzędzia automatyzujące pracę. Kliknij „Zainstaluj”, a Tampermonkey sam zajmie się resztą — łącznie z aktualizacjami.</p>
+  </div>
+</section>
+
+<section class="steps">
+  <div class="container">
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <h3>Zainstaluj Tampermonkey</h3>
+          <p>Dodatek do przeglądarki — <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">tampermonkey.net</a></p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <h3>Kliknij „Zainstaluj”</h3>
+          <p>Tampermonkey otworzy ekran instalacji — potwierdź.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <h3>Aktualizacje automatyczne</h3>
+          <p>Skrypty same się aktualizują — nic nie musisz robić.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="scripts">
+  <div class="container">
+    <div class="section-head">
+      <h2>Dostępne skrypty</h2>
+      <div class="count-badge" id="count-badge"></div>
+    </div>
+    <div id="scripts-root"></div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div>&copy; <span id="year"></span> MDP Serwis – wewnętrzne narzędzia.</div>
+    <div>Pomoc techniczna: skontaktuj się z administratorem</div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.toLocaleDateString('pl-PL', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function renderEmpty() {
+    return `
+      <div class="empty-state">
+        <h3>Brak skryptów do wyświetlenia</h3>
+        <p>Dodaj wpis w pliku <code>manifest.json</code> i wgraj plik <code>.user.js</code> do katalogu <code>scripts/</code>.</p>
+      </div>`;
+  }
+
+  function renderCard(s) {
+    const fileUrl = escapeHtml(s.file);
+    const updated = s.updated_at ? `Zaktualizowano: ${escapeHtml(formatDate(s.updated_at))}` : '';
+    return `
+      <article class="script-card">
+        <div class="script-head">
+          <div class="script-name">
+            ${s.icon ? `<span class="script-icon">${escapeHtml(s.icon)}</span>` : ''}
+            <span>${escapeHtml(s.name)}</span>
+          </div>
+          <span class="version-badge">v${escapeHtml(s.version)}</span>
+        </div>
+        <p class="script-desc">${escapeHtml(s.description || '')}</p>
+        ${updated ? `<div class="script-meta">${updated}</div>` : ''}
+        <div class="script-actions">
+          <a class="btn btn-primary" href="${fileUrl}">Zainstaluj</a>
+          <a class="btn btn-secondary" href="${fileUrl}" target="_blank" rel="noopener" title="Pokaż kod źródłowy">Kod</a>
+        </div>
+      </article>`;
+  }
+
+  fetch('manifest.json', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(data => {
+      const root = document.getElementById('scripts-root');
+      const badge = document.getElementById('count-badge');
+      const meta = document.getElementById('header-meta');
+      const scripts = Array.isArray(data.scripts) ? data.scripts : [];
+
+      meta.textContent = scripts.length
+        ? `${scripts.length} ${scripts.length === 1 ? 'skrypt' : (scripts.length < 5 ? 'skrypty' : 'skryptów')} dostępne`
+        : 'Brak skryptów';
+      badge.textContent = scripts.length ? `${scripts.length} aktywne` : '';
+
+      if (!scripts.length) {
+        root.innerHTML = renderEmpty();
+        return;
+      }
+
+      root.innerHTML = `<div class="scripts-grid">${scripts.map(renderCard).join('')}</div>`;
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('scripts-root').innerHTML = `
+        <div class="empty-state">
+          <h3>Nie udało się załadować listy skryptów</h3>
+          <p>Sprawdź, czy plik <code>manifest.json</code> jest dostępny i zawiera poprawny JSON.</p>
+        </div>`;
+    });
+</script>
+
+</body>
+</html>
